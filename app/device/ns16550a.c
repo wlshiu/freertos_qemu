@@ -1,6 +1,11 @@
 // See LICENSE for license details.
 
-#include "femto.h"
+#include "device.h"
+
+
+#define NS16550A_UART0_CTRL_ADDR    0x10000000
+#define UART0_CLOCK_FREQ            1843200
+#define UART0_BAUD_RATE             115200
 
 enum {
     UART_RBR      = 0x00,  /* Receive Buffer Register */
@@ -29,14 +34,16 @@ enum {
     UART_LSR_EF   = 0x80,  /* Erroneous data in FIFO */
 };
 
-static volatile uint8_t *uart;
+static volatile unsigned char *uart;
 
 static void ns16550a_init()
 {
-	uart = (uint8_t *)(void *)getauxval(NS16550A_UART0_CTRL_ADDR);
-	uint32_t uart_freq = getauxval(UART0_CLOCK_FREQ);
-	uint32_t baud_rate = getauxval(UART0_BAUD_RATE);
-    uint32_t divisor = uart_freq / (16 * baud_rate);
+    unsigned int uart_freq = UART0_CLOCK_FREQ;
+    unsigned int baud_rate = UART0_BAUD_RATE;
+    unsigned int divisor = uart_freq / (16 * baud_rate);
+
+    uart = (unsigned char *)(void *)NS16550A_UART0_CTRL_ADDR;
+
     uart[UART_LCR] = UART_LCR_DLAB;
     uart[UART_DLL] = divisor & 0xff;
     uart[UART_DLM] = (divisor >> 8) & 0xff;

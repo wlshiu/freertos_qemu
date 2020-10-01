@@ -1,17 +1,19 @@
 // See LICENSE for license details.
 
-#include "femto.h"
+#include "device.h"
+
+#define SIFIVE_TEST_CTRL_ADDR       0x100000
 
 enum {
 	SIFIVE_TEST_FAIL = 0x3333,
 	SIFIVE_TEST_PASS = 0x5555,
 };
 
-static volatile uint32_t *test;
+static volatile unsigned int *test;
 
 static void sifive_test_init()
 {
-	test = (uint32_t *)(void *)getauxval(SIFIVE_TEST_CTRL_ADDR);
+	test = (unsigned int *)(void *)SIFIVE_TEST_CTRL_ADDR;
 }
 
 static void sifive_test_poweroff(int status)
@@ -22,7 +24,7 @@ static void sifive_test_poweroff(int status)
     }
 }
 
-poweroff_device_t poweroff_sifive_test = {
+poweroff_device_t   poweroff_sifive_test = {
 	sifive_test_init,
 	sifive_test_poweroff
 };

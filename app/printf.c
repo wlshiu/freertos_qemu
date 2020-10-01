@@ -1,17 +1,25 @@
 // See LICENSE for license details.
 
-#include <stdio.h>
+// #include <stdio.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <alloca.h>
+#include "device.h"
 
 int putchar(int ch)
 {
-    return console_dev->putchar(ch);
+    extern console_device_t     console_ns16550a;
+    return console_ns16550a.putchar(ch);
 }
 
+int puts(const char *s)
+{
+    while (*s) putchar(*s++);
+    putchar('\n');
+    return 1;
+}
 
-int vsnprintf(char * out, size_t n, const char* s, va_list vl)
+static int _vsnprintf(char * out, size_t n, const char* s, va_list vl)
 {
     int format = 0;
     int longarg = 0;
@@ -36,7 +44,7 @@ int vsnprintf(char * out, size_t n, const char* s, va_list vl)
             }
             case 'x': {
                 long num = longarg ? va_arg(vl, long) : va_arg(vl, int);
-                int hexdigits = 2*(longarg ? sizeof(long) : sizeof(int))-1;
+                int hexdigits = 2 * (longarg ? sizeof(long) : sizeof(int))-1;
                 for(int i = hexdigits; i >= 0; i--) {
                     int d = (num >> (4*i)) & 0xF;
                     if (out && pos < n) {
@@ -60,7 +68,7 @@ int vsnprintf(char * out, size_t n, const char* s, va_list vl)
                 long digits = 1;
                 for (long nn = num; nn /= 10; digits++)
                     ;
-                for (int i = digits-1; i >= 0; i--) {
+                for (int i = digits - 1; i >= 0; i--) {
                     if (out && pos + i < n) {
                         out[pos + i] = '0' + (num % 10);
                     }
@@ -86,7 +94,7 @@ int vsnprintf(char * out, size_t n, const char* s, va_list vl)
             }
             case 'c': {
                 if (out && pos < n) {
-                    out[pos] = (char)va_arg(vl,int);
+                    out[pos] = (char)va_arg(vl, int);
                 }
                 pos++;
                 longarg = 0;
@@ -111,17 +119,17 @@ int vsnprintf(char * out, size_t n, const char* s, va_list vl)
         out[pos] = 0;
     }
     else if (out && n) {
-        out[n-1] = 0;
+        out[n - 1] = 0;
     }
-    return pos;
+    return (int)pos;
 }
 
-int vprintf(const char* s, va_list vl)
+static int _vprintf(const char* s, va_list vl)
 {
     char *out;
-    int res = vsnprintf(NULL, -1, s, vl);
+    int res = _vsnprintf(0, (size_t)-1, s, vl);
     out = alloca(res + 1);
-    vsnprintf(out, res + 1, s, vl);
+    _vsnprintf(out, res + 1, s, vl);
     while (*out) putchar(*out++);
     return res;
 }
@@ -131,7 +139,7 @@ int printf(const char* s, ...)
     int res = 0;
     va_list vl;
     va_start(vl, s);
-    res = vprintf(s, vl);
+    res = _vprintf(s, vl);
     va_end(vl);
     return res;
 }
