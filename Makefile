@@ -49,12 +49,12 @@ FREERTOS_SRC = \
     $(FREERTOS_SOURCE_DIR)/timers.c \
     $(FREERTOS_SOURCE_DIR)/event_groups.c \
     $(FREERTOS_SOURCE_DIR)/portable/MemMang/heap_4.c
-	
-FREERTOS_SRC += $(FREERTOS_SOURCE_DIR)/stream_buffer.c
+
+# FREERTOS_SRC += $(FREERTOS_SOURCE_DIR)/stream_buffer.c
 
 PORT_SRC = $(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V/port.c
 
-PORT_ASM = $(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V/portASM.S
+PORT_ASM = $(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V/portasm.S
 
 RTOS_OBJ 	 := $(FREERTOS_SRC:.c=.o)
 PORT_OBJ 	 := $(PORT_SRC:.c=.o)
@@ -106,5 +106,3 @@ qemu: $(PROG)
 
 clean:
 	$(RM) -f $(OBJS) $(KERNEL) $(PROG) *.dis
-
-
