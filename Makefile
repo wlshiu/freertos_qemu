@@ -49,7 +49,7 @@ FREERTOS_SRC = \
     $(FREERTOS_SOURCE_DIR)/timers.c \
     $(FREERTOS_SOURCE_DIR)/event_groups.c \
     $(FREERTOS_SOURCE_DIR)/portable/MemMang/heap_4.c
-	
+
 FREERTOS_SRC += $(FREERTOS_SOURCE_DIR)/stream_buffer.c
 
 PORT_SRC = $(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V/port.c
@@ -93,7 +93,8 @@ all: $(KERNEL) $(PROG)
 	@$(CC) -c $(CFLAGS) -o $@ $<
 
 $(KERNEL): $(KERNEL_OBJS)
-	$(AR) rcs $@ $(KERNEL_OBJS)
+	@echo "    AR $(KERNEL)"
+	@$(AR) rcs $@ $(KERNEL_OBJS)
 
 $(PROG): $(OBJS) Makefile
 	@echo Linking....
@@ -106,5 +107,3 @@ qemu: $(PROG)
 
 clean:
 	$(RM) -f $(OBJS) $(KERNEL) $(PROG) *.dis
-
-

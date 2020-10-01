@@ -61,3 +61,4 @@ GPATH
 GRTAGS
 GTAGS
 tags
+*.dis
