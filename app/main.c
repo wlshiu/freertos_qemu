@@ -114,3 +114,8 @@ void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
     while(1) {}
 }
 #endif
+
+void vApplicationIdleHook(void)
+{
+    return;
+}

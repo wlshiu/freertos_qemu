@@ -23,10 +23,11 @@ INCLUDES  = -I$(FREERTOS_SOURCE_DIR)/include \
 
 LIBRARY   :=
 KERNEL    := libfreertos.a
+LDS       := app/device/virt/default.lds
 PROG      := demo.elf
-LIBS      := -lfreertos
+LIBS      := -lfreertos -lgcc
 CFLAGS    := -O0 -g -Wall $(INCLUDES) -march=$(ARCH) -mcmodel=medany -nostdlib -nostartfiles
-LDFLAGS   := -L. -T app/virt/default.lds -march=$(ARCH) -mcmodel=medany -nostdlib -nostartfiles
+LDFLAGS   := -L. -T $(LDS) -march=$(ARCH) -static -mcmodel=medany -nostdlib -nostartfiles
 
 
 ifeq ($(ARCH), rv32imc)
@@ -46,9 +47,10 @@ FREERTOS_SRC = \
     $(FREERTOS_SOURCE_DIR)/queue.c \
     $(FREERTOS_SOURCE_DIR)/tasks.c \
     $(FREERTOS_SOURCE_DIR)/timers.c \
-    $(FREERTOS_SOURCE_DIR)/stream_buffer.c \
     $(FREERTOS_SOURCE_DIR)/event_groups.c \
     $(FREERTOS_SOURCE_DIR)/portable/MemMang/heap_4.c
+	
+FREERTOS_SRC += $(FREERTOS_SOURCE_DIR)/stream_buffer.c
 
 PORT_SRC = $(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V/port.c
 
@@ -60,38 +62,49 @@ PORT_ASM_OBJ := $(PORT_ASM:.S=.o)
 KERNEL_OBJS  := $(PORT_ASM_OBJ) $(PORT_OBJ) $(RTOS_OBJ)
 
 
-APP_SRC = app/main.c app/printf.c app/syscalls.c app/memset.c
+APP_SRC = \
+    app/printf.c \
+	app/isr.c \
+	app/syscalls.c \
+	app/memset.c \
+	app/memcpy.c \
+	app/strlen.c \
+    app/main.c
 
-DEV_SRC     = app/device/ns16550a.c app/device/sifive_test.c app/device/virt/setup.c
-DEV_ASM_SRC = app/device/virt/crtm.s
+DEV_SRC      = app/device/ns16550a.c app/device/sifive_test.c app/device/virt/setup.c
+BOOT_ASM_SRC = app/device/virt/boot.S
 
 APP_OBJ 	 := $(APP_SRC:.c=.o)
 DEV_OBJ 	 := $(DEV_SRC:.c=.o)
-DEV_ASM_OBJ  := $(DEV_ASM_SRC:.s=.o)
+BOOT_ASM_OBJ := $(BOOT_ASM_SRC:.S=.o)
+APP_OBJS     := $(BOOT_ASM_OBJ) $(DEV_OBJ) $(APP_OBJ)
 
+
+OBJS := $(KERNEL_OBJS) $(APP_OBJS)
 
 all: $(KERNEL) $(PROG)
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) -o $@ $<
+	@echo "    CC $<"
+	@$(CC) -c $(CFLAGS) -o $@ $<
 
 %.o: %.S
-	$(CC) -c $(CFLAGS) -o $@ $<
-	
-%.o: %.s
-	$(CC) -c $(CFLAGS) -o $@ $<	
+	@echo "    CC $<"
+	@$(CC) -c $(CFLAGS) -o $@ $<
 
 $(KERNEL): $(KERNEL_OBJS)
 	$(AR) rcs $@ $(KERNEL_OBJS)
 
-%.elf: Makefile
-	$(CC) -o $@ $(APP_SRC) $(DEV_SRC) $(CFLAGS) $(LDFLAGS) $(LIBS)
-	$(OBJDUMP) -d $@ > $@.dis
+$(PROG): $(OBJS) Makefile
+	@echo Linking....
+	@$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
+	@$(OBJDUMP) -d $@ > $@.dis
+	@echo Completed $@
 
 qemu: $(PROG)
 	qemu-system-$(QEMU_PLT) -M virt -m 128M -nographic -kernel $(PROG)
 
 clean:
-	$(RM) -f $(KERNEL_OBJS) $(APP_OBJ) $(DEV_OBJ) $(DEV_ASM_OBJ) $(KERNEL) *.elf *.elf.dis
+	$(RM) -f $(OBJS) $(KERNEL) $(PROG) *.dis
 
 
