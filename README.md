@@ -1,6 +1,6 @@
 # riscv_freertos
 
-Run freertos (v10.4.1) with RISCV of Qemu
+Run freertos (v10.2.1) with RISCV of Qemu
 
 # run
 

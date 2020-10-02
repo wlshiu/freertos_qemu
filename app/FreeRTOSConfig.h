@@ -43,13 +43,14 @@
  * See http://www.freertos.org/a00110.html
  *----------------------------------------------------------*/
 
+#define configCLINT_BASE_ADDRESS		0x02000000ul
 #define configUSE_PREEMPTION            1
 #define configUSE_IDLE_HOOK             1
 #define configUSE_TICK_HOOK             1
-#define configCPU_CLOCK_HZ              ( ( uint32_t ) ( 10*1000*1000 ) )
+#define configCPU_CLOCK_HZ              ( ( unsigned int ) ( 10*1000*1000 ) )
 #define configTICK_RATE_HZ              ( ( TickType_t ) 1000 )
 #define configMAX_PRIORITIES            ( 5 )
-#define configMINIMAL_STACK_SIZE        ( ( uint32_t ) 170 ) /* Can be as low as 60 but some of the demo tasks that use this constant require it to be higher. */
+#define configMINIMAL_STACK_SIZE        ( ( unsigned int ) 170 ) /* Can be as low as 60 but some of the demo tasks that use this constant require it to be higher. */
 #define configTOTAL_HEAP_SIZE           ( ( size_t ) ( 16 * 1024 ) )
 #define configMAX_TASK_NAME_LEN         ( 8 )
 #define configUSE_TRACE_FACILITY        0

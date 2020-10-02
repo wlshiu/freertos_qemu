@@ -1,6 +1,8 @@
 
 CROSS_COMPILE ?=riscv-none-embed-
 
+BUILD_DIR = build
+
 AR        = $(CROSS_COMPILE)ar
 CC        = $(CROSS_COMPILE)gcc
 OBJDUMP   = $(CROSS_COMPILE)objdump
@@ -10,13 +12,15 @@ READELF   = $(CROSS_COMPILE)readelf
 
 srctree   := $(shell pwd)
 
-# ARCH      := rv64imc
-ARCH      := rv32imc
+# ARCH      := rv64imac
+ARCH       := rv32imac
+ARCH_FLAGS := -march=$(ARCH) -mcmodel=medany
 
 FREERTOS_SOURCE_DIR := freertos
 
 INCLUDES  = -I$(FREERTOS_SOURCE_DIR)/include \
 			-I$(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V \
+			-I$(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V/chip_specific_extensions/RV32I_CLINT_no_extensions \
 			-Iapp/device \
 			-Iapp
 
@@ -25,20 +29,24 @@ LIBRARY   :=
 KERNEL    := libfreertos.a
 LDS       := app/device/virt/default.lds
 PROG      := demo.elf
-LIBS      := -lfreertos -lgcc
-CFLAGS    := -O0 -g -Wall $(INCLUDES) -march=$(ARCH) -mcmodel=medany -nostdlib -nostartfiles
-LDFLAGS   := -L. -T $(LDS) -march=$(ARCH) -static -mcmodel=medany -nostdlib -nostartfiles
+LIBS      := -lfreertos
 
+LDFLAGS   := -L. -T $(LDS) -march=$(ARCH) -Wl,-Map,"$(PROG).map" -static -mcmodel=medany -nostartfiles
+# LDFLAGS   := -L. -T $(LDS) -march=$(ARCH) -static -nostdlib -nostartfiles
 
-ifeq ($(ARCH), rv32imc)
+CFLAGS    := -g -Wall $(INCLUDES) $(ARCH_FLAGS)
+CFLAGS    += -O0 -nostartfiles
+CFLAGS    += -msmall-data-limit=8 -std=gnu11 -ffunction-sections -fdata-sections -fno-builtin-printf
+CFLAGS    += -DportasmHANDLE_INTERRUPT=handle_trap
+CFLAGS    += -g
+
+ifeq ($(ARCH), rv32imac)
 QEMU_PLT := riscv32
-CFLAGS += -D__riscv_xlen=32
-INCLUDES += app/virt/rv32
+CFLAGS += -D__riscv_xlen=32 -mabi=ilp32
 
-else ifeq ($(ARCH), rv64imc)
+else ifeq ($(ARCH), rv64imac)
 QEMU_PLT := riscv64
-CFLAGS += -D__riscv_xlen=64
-INCLUDES += app/virt/rv64
+CFLAGS += -D__riscv_xlen=64 -mabi=ilp64
 endif
 
 FREERTOS_SRC = \
@@ -72,7 +80,7 @@ APP_SRC = \
     app/main.c
 
 DEV_SRC      = app/device/ns16550a.c app/device/sifive_test.c app/device/virt/setup.c
-BOOT_ASM_SRC = app/device/virt/boot.S
+BOOT_ASM_SRC = app/device/virt/boot.S app/device/virt/trap.S
 
 APP_OBJ 	 := $(APP_SRC:.c=.o)
 DEV_OBJ 	 := $(DEV_SRC:.c=.o)
@@ -81,6 +89,8 @@ APP_OBJS     := $(BOOT_ASM_OBJ) $(DEV_OBJ) $(APP_OBJ)
 
 
 OBJS := $(KERNEL_OBJS) $(APP_OBJS)
+
+.PHONY: clean
 
 all: $(KERNEL) $(PROG)
 
@@ -106,4 +116,4 @@ qemu: $(PROG)
 	qemu-system-$(QEMU_PLT) -M virt -m 128M -nographic -kernel $(PROG)
 
 clean:
-	$(RM) -f $(OBJS) $(KERNEL) $(PROG) *.dis
+	$(RM) -f $(OBJS) $(KERNEL) $(PROG) *.dis *.map
