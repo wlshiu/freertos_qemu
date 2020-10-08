@@ -61,6 +61,12 @@ extern "C" {
 /* Definitions specific to the port being used. */
 #include "portable.h"
 
+/* Picolibc doesn't have reent.h */
+#ifdef _PICOLIBC__
+	#undef configUSE_NEWLIB_REENTRANT
+	#define configUSE_NEWLIB_REENTRANT 0
+#endif
+
 /* Must be defaulted before configUSE_NEWLIB_REENTRANT is used below. */
 #ifndef configUSE_NEWLIB_REENTRANT
 	#define configUSE_NEWLIB_REENTRANT 0
@@ -70,6 +76,10 @@ extern "C" {
 #if ( configUSE_NEWLIB_REENTRANT == 1 )
 	#include <reent.h>
 #endif
+#if ( configUSE_PICOLIBC_TLS == 1 )
+	#include <picotls.h>
+#endif
+
 /*
  * Check all the required application specific macros have been defined.
  * These macros are application specific and (as downloaded) are defined
@@ -160,6 +170,10 @@ extern "C" {
 	#define INCLUDE_uxTaskGetStackHighWaterMark2 0
 #endif
 
+#ifndef INCLUDE_pxTaskGetStackStart
+	#define INCLUDE_pxTaskGetStackStart 0
+#endif
+
 #ifndef INCLUDE_eTaskGetState
 	#define INCLUDE_eTaskGetState 0
 #endif
@@ -239,6 +253,18 @@ extern "C" {
 	#define configASSERT_DEFINED 0
 #else
 	#define configASSERT_DEFINED 1
+#endif
+
+/* configPRECONDITION should be resolve to configASSERT.
+   The CBMC proofs need a way to track assumptions and assertions.
+   A configPRECONDITION statement should express an implicit invariant or assumption made.
+   A configASSERT statement should express an invariant that must hold explicit before calling
+   the code. */
+#ifndef configPRECONDITION
+	#define configPRECONDITION( X ) configASSERT(X)
+	#define configPRECONDITION_DEFINED 0
+#else
+	#define configPRECONDITION_DEFINED 1
 #endif
 
 #ifndef portMEMORY_BARRIER
@@ -398,6 +424,22 @@ extern "C" {
 
 #ifndef tracePOST_MOVED_TASK_TO_READY_STATE
 	#define tracePOST_MOVED_TASK_TO_READY_STATE( pxTCB )
+#endif
+
+#ifndef traceREADDED_TASK_TO_READY_STATE
+	#define traceREADDED_TASK_TO_READY_STATE( pxTCB )	traceMOVED_TASK_TO_READY_STATE( pxTCB )
+#endif
+
+#ifndef traceMOVED_TASK_TO_DELAYED_LIST
+	#define traceMOVED_TASK_TO_DELAYED_LIST()
+#endif
+
+#ifndef traceMOVED_TASK_TO_OVERFLOW_DELAYED_LIST
+	#define traceMOVED_TASK_TO_OVERFLOW_DELAYED_LIST()
+#endif
+
+#ifndef traceMOVED_TASK_TO_SUSPENDED_LIST
+	#define traceMOVED_TASK_TO_SUSPENDED_LIST( pxTCB )
 #endif
 
 #ifndef traceQUEUE_CREATE
@@ -642,6 +684,18 @@ extern "C" {
 
 #ifndef traceTASK_NOTIFY_GIVE_FROM_ISR
 	#define traceTASK_NOTIFY_GIVE_FROM_ISR()
+#endif
+
+#ifndef traceISR_EXIT_TO_SCHEDULER
+	#define traceISR_EXIT_TO_SCHEDULER()
+#endif
+
+#ifndef traceISR_EXIT
+	#define traceISR_EXIT()
+#endif
+
+#ifndef traceISR_ENTER
+	#define traceISR_ENTER()
 #endif
 
 #ifndef traceSTREAM_BUFFER_CREATE_FAILED
@@ -1125,6 +1179,9 @@ typedef struct xSTATIC_TCB
 	#endif
 	#if ( configUSE_NEWLIB_REENTRANT == 1 )
 		struct	_reent	xDummy17;
+	#endif
+	#if ( configUSE_PICOLIBC_TLS == 1 && configTLS_STATIC_SIZE > 0 )
+		uint8_t			uxDummy17[configTLS_STATIC_SIZE];
 	#endif
 	#if ( configUSE_TASK_NOTIFICATIONS == 1 )
 		uint32_t 		ulDummy18;
