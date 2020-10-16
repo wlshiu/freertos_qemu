@@ -13,33 +13,55 @@ GDB       = $(CROSS_COMPILE)-gdb
 
 srctree   := $(shell pwd)
 
-# ARCH      := rv64imac
-ARCH       := rv32imac
-ARCH_FLAGS := -march=$(ARCH) -mcmodel=medlow
+###########
+# select board
+# BOARD=sifive_e
+BOARD=sifive_u
 
-ifeq ($(ARCH), rv32imac)
-QEMU_PLT := riscv32
-ARCH_FLAGS += -D__riscv_xlen=32 -mabi=ilp32
-
-else ifeq ($(ARCH), rv64imac)
-QEMU_PLT := riscv64
-ARCH_FLAGS += -D__riscv_xlen=64 -mabi=ilp64
-endif
-
-
-INCLUDES   :=
-LIBRARY   :=
-TARGET_LDS :=
-LIBS       :=
+##########
+# select APP
 # APP        := hello
 APP        := blinky
 # APP        := pmp_blinky
 
-PROG       := $(APP).elf
+CORES      := 1
+INCLUDES   :=
+LIBRARY    :=
+TARGET_LDS :=
+LIBS       :=
+PROG_ELF   := $(APP).elf
+PROG_BIN   := $(APP).bin
+
+
+ifeq ("$(BOARD)", "sifive_u")
+ARCH       := rv64imafdc
+ARCH_FLAGS := -march=$(ARCH) -mabi=lp64d -mcmodel=medany
+QEMU_PLT   := riscv64
+ARCH_FLAGS += -D__riscv_xlen=64
+
+CORES          := 4
+DEVICE_SRC_DIR := device/sifive_u54mc
+
+else ifeq ("$(BOARD)", "sifive_e")
+ARCH       := rv32imac
+ARCH_FLAGS := -march=$(ARCH) -mabi=ilp32 -mcmodel=medlow
+QEMU_PLT   := riscv32
+ARCH_FLAGS += -D__riscv_xlen=32
+
+DEVICE_SRC_DIR := device/sifive_e31
+
+else
+$(error BOARD is sifive_u or sifive_e ?)
+
+endif
+
+
+
+
 ###########################################
 # device
 ###########################################
-DEVICE_SRC_DIR := device/sifive_e31
+
 GLOSS_SRC = \
 	$(DEVICE_SRC_DIR)/gloss/nanosleep.c           \
 	$(DEVICE_SRC_DIR)/gloss/sys_access.c          \
@@ -212,7 +234,7 @@ INCLUDES  += \
 ###########################################
 # flags
 ###########################################
-LDFLAGS   := -L. -T $(TARGET_LDS) -Wl,-Map,"$(PROG).map" -nostartfiles
+LDFLAGS   := -L. -T $(TARGET_LDS) -Wl,-Map,"$(PROG_ELF).map" -nostartfiles
 # LDFLAGS   := -L. -T $(LDS) -march=$(ARCH) -static -nostdlib -nostartfiles
 
 LDFLAGS   += $(ARCH_FLAGS)
@@ -227,11 +249,16 @@ CFLAGS    += -DWAIT_MS=1000
 CFLAGS    += -O0 -g
 
 
-OBJS := $(DEVICE_OBJS) $(APP_OBJS) $(FREERTOS_OBJS)
+OBJS := $(DEVICE_OBJS) $(APP_OBJS)
 
-.PHONY: all clean gtags
 
-all: $(PROG)
+ifneq ("$(APP)","hello")
+OBJS += $(FREERTOS_OBJS)
+endif
+
+.PHONY: all clean qemu gdb_server gdb gtags
+
+all: $(PROG_ELF) $(PROG_BIN)
 
 %.o: %.c
 	@echo "    CC $<"
@@ -243,27 +270,42 @@ all: $(PROG)
 
 -include $(OBJS:.o=.d)
 
-$(PROG): $(OBJS) Makefile
+$(PROG_ELF): $(OBJS) Makefile
 	@echo Linking....
 	@$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
 	@$(OBJDUMP) -d $@ > $@.dis
 	@echo Completed $@
 
-qemu: $(PROG)
+$(PROG_BIN): $(PROG_ELF)
+	@$(OBJCOPY) -O binary $< $@
+
+qemu: $(PROG_ELF)
 	@echo ""
 	@echo "Launching QEMU! Press Ctrl-A, X to exit"
-	@echo "qemu-system-$(QEMU_PLT) -M sifive_e -nographic -kernel $(PROG)"
+ifeq ("$(CORES)", "1")
+	qemu-system-$(QEMU_PLT) -M $(BOARD) -nographic -kernel $(PROG_ELF)
+else
+	qemu-system-$(QEMU_PLT) -M $(BOARD) -nographic -smp $(CORES) -kernel $(PROG_ELF)
+endif
 	@echo ""
-	@qemu-system-$(QEMU_PLT) -M sifive_e -nographic -kernel $(PROG)
 
-gdb_server: $(PROG)
-	qemu-system-$(QEMU_PLT) -M sifive_e -nographic -kernel $(PROG) -S -s
+gdb_server: $(PROG_ELF)
+	@echo ""
+	@echo "Launching QEMU! Press Ctrl-A, X to exit"
+ifeq ("$(CORES)", "1")
+	qemu-system-$(QEMU_PLT) -M $(BOARD) -nographic -kernel $(PROG_ELF) -S -s
+else
+	qemu-system-$(QEMU_PLT) -M $(BOARD) -nographic -smp $(CORES) -kernel $(PROG_ELF) -S -s
+endif
+	@echo ""
 
-gdb: $(PROG)
-	$(GDB) $(PROG) --command=init.gdb
+gdb: $(PROG_ELF)
+	$(GDB) $(PROG_ELF) --command=init.gdb
 
 clean:
-	@$(RM) -f $(OBJS) $(OBJS:.o=.d) $(FREERTOS_OBJS) $(PROG) *.dis *.map
+	@$(RM) -f $(OBJS) $(OBJS:.o=.d) $(FREERTOS_OBJS) $(PROG_ELF) $(PROG_BIN) *.dis *.map
+	@find . -type f -name '*.o' -exec $(RM) -f {} \;
+	@find . -type f -name '*.d' -exec $(RM) -f {} \;
 	@echo "clean done..."
 
 gtags:
