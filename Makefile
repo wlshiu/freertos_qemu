@@ -1,80 +1,194 @@
 
-CROSS_COMPILE ?=riscv-none-embed-
+CROSS_COMPILE :=arm-none-eabi-
+
+BUILD_DIR = build
 
 AR        = $(CROSS_COMPILE)ar
 CC        = $(CROSS_COMPILE)gcc
 OBJDUMP   = $(CROSS_COMPILE)objdump
 OBJCOPY   = $(CROSS_COMPILE)objcopy
 READELF   = $(CROSS_COMPILE)readelf
+GDB       = $(CROSS_COMPILE)gdb
 
 
 srctree   := $(shell pwd)
 
-# ARCH      := rv64imc
-ARCH      := rv32imc
+###########
+# select board
+BOARD=stm32f429i
 
-FREERTOS_SOURCE_DIR :=
+##########
+# select APP
+APP        := demo
+# APP        := trace_demo
 
-INCLUDES  = -I$(FREERTOS_SOURCE_DIR)/include \
-			-I$(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V
+##########
+# select CPU
+# ARCH      := ARM_CM3
+# ARCH      := ARM_CM4F
+ARCH      := ARM_CM4F_SoftFP
 
 
-LIBRARY   := libfreertos.a
-PROG      := demo.elf
-LIBS      := -lfreertos
-CFLAGS    := -O0 -g -Wall $(INCLUDES) -march=$(ARCH) -mcmodel=medany -nostdlib -nostartfiles
-LDFLAGS   := -L. -T Common/default.ld -march=$(ARCH) -mcmodel=medany -nostdlib -nostartfiles
+CORES      := 1
+INCLUDES   :=
+LIBRARY    :=
+TARGET_LDS :=
+LIBS       :=
+PROG_ELF   := $(APP).elf
+PROG_BIN   := $(APP).bin
 
 
-ifeq ($(ARCH), rv32imc)
-QEMU_PLT := riscv32
-CFLAGS += -D__riscv_xlen=32
-else ifeq ($(ARCH), rv64imc)
-QEMU_PLT := riscv32
-CFLAGS += -D__riscv_xlen=64
+ARCH_FLAGS := -march=armv7e-m -mcpu=cortex-m4 -mthumb -mlittle-endian -mthumb-interwork
+
+
+
+DEVICE_SRC_DIR := device/
+
+###########################################
+# device
+###########################################
+
+
+DEVICE_SRC = \
+	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_syscfg.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/misc.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_gpio.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_rcc.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_exti.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_i2c.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_dma.c \
+	$(DEVICE_SRC_DIR)/STM32F429I_Discovery/stm32f429i_discovery.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx/src/stm32f4xx_it.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx/src/system_stm32f4xx.c
+
+
+DEVICE_ASM_SRC = \
+	$(DEVICE_SRC_DIR)/STM32F4xx/src/startup_stm32f429_439xx.S
+
+
+DEVICE_OBJS := $(DEVICE_SRC:.c=.o) $(DEVICE_ASM_SRC:.S=.o)
+
+INCLUDES += -I$(DEVICE_SRC_DIR) \
+			-I$(DEVICE_SRC_DIR)/STM32F4xx/inc \
+			-I$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/inc \
+			-I$(DEVICE_SRC_DIR)/STM32F429I_Discovery \
+			-I$(DEVICE_SRC_DIR)/CMSIS/Include
+
+TARGET_LDS = $(DEVICE_SRC_DIR)/stm32_flash.ld
+###########################################
+# app
+###########################################
+APP_SRC_DIR := app
+
+ifeq ("$(APP)","demo")
+APP_SRC = $(APP_SRC_DIR)/demo/main.c
+
+else ifeq ("$(APP)","trace_demo")
+APP_SRC = \
+	$(APP_SRC_DIR)/
+
 endif
 
+
+APP_OBJS := $(APP_SRC:.c=.o)
+
+INCLUDES  += -I$(APP_SRC_DIR) -I$(APP_SRC_DIR)/$(APP)
+###########################################
+# freertos
+###########################################
+FREERTOS_SRC_DIR := freertos
+
 FREERTOS_SRC = \
-    $(FREERTOS_SOURCE_DIR)/croutine.c \
-    $(FREERTOS_SOURCE_DIR)/list.c \
-    $(FREERTOS_SOURCE_DIR)/queue.c \
-    $(FREERTOS_SOURCE_DIR)/tasks.c \
-    $(FREERTOS_SOURCE_DIR)/timers.c \
-    $(FREERTOS_SOURCE_DIR)/stream_buffer.c \
-    $(FREERTOS_SOURCE_DIR)/event_groups.c \
-    $(FREERTOS_SOURCE_DIR)/portable/MemMang/heap_4.c
+    $(FREERTOS_SRC_DIR)/croutine.c \
+    $(FREERTOS_SRC_DIR)/list.c \
+    $(FREERTOS_SRC_DIR)/queue.c \
+    $(FREERTOS_SRC_DIR)/tasks.c \
+    $(FREERTOS_SRC_DIR)/timers.c \
+    $(FREERTOS_SRC_DIR)/event_groups.c \
+	$(FREERTOS_SRC_DIR)/stream_buffer.c \
+    $(FREERTOS_SRC_DIR)/portable/MemMang/heap_4.c
 
-PORT_SRC = $(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V/port.c
+# FREERTOS_SRC += $(FREERTOS_SRC_DIR)/portable/Common/mpu_wrappers.c
 
-PORT_ASM = $(FREERTOS_SOURCE_DIR)/portable/GCC/RISC-V/portASM.S
+PORT_SRC = \
+	$(FREERTOS_SRC_DIR)/portable/GCC/$(ARCH)/port.c
 
-APP_SRC =
+PORT_ASM =
 
-RTOS_OBJ 	 := $(FREERTOS_SRC:.c=.o)
-PORT_OBJ 	 := $(PORT_SRC:.c=.o)
-PORT_ASM_OBJ := $(PORT_ASM:.S=.o)
-APP_OBJ 	 := $(APP_SRC:.c=.o)
-OBJS 	 	 := $(PORT_ASM_OBJ) $(PORT_OBJ) $(RTOS_OBJ)
+FREERTOS_OBJS := $(PORT_ASM:.S=.o) $(PORT_SRC:.c=.o) $(FREERTOS_SRC:.c=.o)
 
-all: $(LIBRARY) $(PROG)
+INCLUDES  += \
+	-I$(FREERTOS_SRC_DIR)/include \
+	-I$(FREERTOS_SRC_DIR)/portable/GCC//$(ARCH)
+
+###########################################
+# flags
+###########################################
+LDFLAGS   := -L. -T $(TARGET_LDS) -Wl,-Map,"$(PROG_ELF).map"
+
+LDFLAGS   += $(ARCH_FLAGS)
+LDFLAGS   += -Wl,--start-group -lc -lgcc -lm -Wl,--end-group --specs=nosys.specs
+
+CFLAGS    := -Wall -MMD -MP $(ARCH_FLAGS) -ffunction-sections -fdata-sections --specs=nano.specs $(INCLUDES)
+CFLAGS    += -O0 -g
+CFLAGS    += -DUSE_STDPERIPH_DRIVER -DSTM32F4XX
+
+ifeq ($(ARCH), ARM_CM3)
+
+else ifeq ($(ARCH), ARM_CM4F_SoftFP)
+CFLAGS    += -mfpu=fpv4-sp-d16 -mfloat-abi=softfp
+endif
+
+
+OBJS := $(DEVICE_OBJS) $(APP_OBJS)
+OBJS += $(FREERTOS_OBJS)
+
+.PHONY: all clean qemu qemu_gdb gtags
+
+all: $(PROG_ELF) $(PROG_BIN)
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) -o $@ $<
+	@echo "    CC $<"
+	@$(CC) -c $(CFLAGS) -o $@ $<
 
 %.o: %.S
-	$(CC) -c $(CFLAGS) -o $@ $<
+	@echo "    CC $<"
+	@$(CC) -c $(CFLAGS) -o $@ $<
 
-$(LIBRARY): $(OBJS)
-	$(AR) rcs $@ $(OBJS)
+-include $(OBJS:.o=.d)
 
-%.elf: Makefile
-	$(CC) -o $@ $(@:.elf=.c) $(CFLAGS) $(LDFLAGS) $(LIBS)
-	$(OBJDUMP) -d $@ > $@.dis
+$(PROG_ELF): $(OBJS) Makefile
+	@echo Linking....
+	@$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
+	@$(OBJDUMP) -d $@ > $@.dis
+	@echo Completed $@
 
-qemu: $(PROG)
-	qemu-system-$(QEMU_PLT) -M virt -m 128M -nographic -kernel $(PROG)
+$(PROG_BIN): $(PROG_ELF)
+	@$(OBJCOPY) -O binary $< $@
+
+# --semihosting-cmdline hello_rtos 1 2 3
+qemu: $(PROG_ELF)
+	@echo ""
+	@echo "Launching QEMU! Press Ctrl-A, X to exit"
+	qemu-system-gnuarmeclipse --verbose --verbose --board STM32F429I-Discovery --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --semihosting-cmdline $(APP) 1 2 3
+	@echo ""
+
+qemu_gdb: $(PROG_ELF)
+	@echo ""
+	@echo "Launching QEMU! Press Ctrl-A, X to exit"
+	qemu-system-gnuarmeclipse --verbose --board STM32F429I-Discovery --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --gdb tcp::1234 -S
+	@echo ""
+
+#gdb: $(PROG_ELF)
+#	$(GDB) $(PROG_ELF) --command=init.gdb
 
 clean:
-	$(RM) -f $(OBJS) $(APP_OBJ) $(LIBRARY) examples/*.elf examples/*.elf.dis
+	@$(RM) -f $(OBJS) $(OBJS:.o=.d) $(FREERTOS_OBJS) $(PROG_ELF) $(PROG_BIN) *.dis *.map
+	@find . -type f -name '*.o' -exec $(RM) -f {} \;
+	@find . -type f -name '*.d' -exec $(RM) -f {} \;
+	@echo "clean done..."
 
-
+gtags:
+	@find . -type f -name '*.c' -o -name '*.h' -o -iname '*.s' > cscope.files
+	@rm -f G* tags
+	@gtags -f ./cscope.files
