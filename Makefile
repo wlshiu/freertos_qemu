@@ -15,7 +15,9 @@ srctree   := $(shell pwd)
 
 ###########
 # select board
-BOARD=stm32f429i
+BOARD=STM32-P107 
+# BOARD=STM32F4-Discovery 
+# BOARD=STM32F429I-Discovery
 
 ##########
 # select APP
@@ -170,13 +172,13 @@ $(PROG_BIN): $(PROG_ELF)
 qemu: $(PROG_ELF)
 	@echo ""
 	@echo "Launching QEMU! Press Ctrl-A, X to exit"
-	qemu-system-gnuarmeclipse --verbose --verbose --board STM32F429I-Discovery --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --semihosting-cmdline $(APP) 1 2 3
+	qemu-system-gnuarmeclipse --verbose --verbose --board $(BOARD) --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --semihosting-cmdline $(APP) 1 2 3
 	@echo ""
 
 qemu_gdb: $(PROG_ELF)
 	@echo ""
 	@echo "Launching QEMU! Press Ctrl-A, X to exit"
-	qemu-system-gnuarmeclipse --verbose --board STM32F429I-Discovery --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --gdb tcp::1234 -S
+	qemu-system-gnuarmeclipse --verbose --board $(BOARD) --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --gdb tcp::1234 -S
 	@echo ""
 
 #gdb: $(PROG_ELF)
