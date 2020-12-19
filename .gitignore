@@ -63,3 +63,4 @@ GTAGS
 tags
 *.elf
 *.dis
+*.bin
