@@ -47,7 +47,7 @@
 
 /* The way the SysTick is clocked is not modified in case it is not the same
  * as the core. */
-    #define portNVIC_SYSTICK_CLK    ( 0 )
+    #define portNVIC_SYSTICK_CLK      ( 0 )
 #endif
 
 /* Constants required to access and manipulate the NVIC. */
@@ -174,7 +174,7 @@ extern void vPortResetPrivilege( BaseType_t xRunningPrivileged );
 /* Each task maintains its own interrupt status in the critical nesting
  * variable.  Note this is not saved as part of the task context as context
  * switches can only occur when uxCriticalNesting is zero. */
-static UBaseType_t uxCriticalNesting = 0xaaaaaaaa;
+static UBaseType_t  uxCriticalNesting = 0xaaaaaaaa;
 
 /*
  * Used by the portASSERT_IF_INTERRUPT_PRIORITY_INVALID() macro to ensure
@@ -227,14 +227,14 @@ void vPortSVCHandler( void )
     __asm volatile
     (
         #ifndef USE_PROCESS_STACK   /* Code should not be required if a main() is using the process stack. */
-            "	tst lr, #4						\n"
-            "	ite eq							\n"
-            "	mrseq r0, msp					\n"
-            "	mrsne r0, psp					\n"
+            "   tst lr, #4                      \n"
+            "   ite eq                          \n"
+            "   mrseq r0, msp                   \n"
+            "   mrsne r0, psp                   \n"
         #else
-            "	mrs r0, psp						\n"
+            "   mrs r0, psp                     \n"
         #endif
-        "	b %0							\n"
+        "   b %0                            \n"
         ::"i" ( prvSVCHandler ) : "r0", "memory"
     );
 }
@@ -284,38 +284,36 @@ static void prvSVCHandler( uint32_t * pulParam )
             break;
 
 
-            #if ( configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY == 1 )
-                case portSVC_RAISE_PRIVILEGE: /* Only raise the privilege, if the
-                                               * svc was raised from any of the
-                                               * system calls. */
+    #if ( configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY == 1 )
+        case portSVC_RAISE_PRIVILEGE: /* Only raise the privilege, if the
+                                       * svc was raised from any of the
+                                       * system calls. */
 
-                    if( ( ulPC >= ( uint32_t ) __syscalls_flash_start__ ) &&
-                        ( ulPC <= ( uint32_t ) __syscalls_flash_end__ ) )
-                    {
-                        __asm volatile
-                        (
-                            "	mrs r1, control		\n"/* Obtain current control value. */
-                            "	bic r1, #1			\n"/* Set privilege bit. */
-                            "	msr control, r1		\n"/* Write back new control value. */
-                            ::: "r1", "memory"
-                        );
-                    }
+            if( ( ulPC >= ( uint32_t ) __syscalls_flash_start__ ) &&
+                ( ulPC <= ( uint32_t ) __syscalls_flash_end__ ) )
+            {
+                __asm volatile(
+                    "   mrs r1, control     \n"/* Obtain current control value. */
+                    "   bic r1, #1          \n"/* Set privilege bit. */
+                    "   msr control, r1     \n"/* Write back new control value. */
+                    ::: "r1", "memory"
+                );
+            }
 
-                    break;
-            #else /* if ( configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY == 1 ) */
-                case portSVC_RAISE_PRIVILEGE:
-                    __asm volatile
-                    (
-                        "	mrs r1, control		\n"/* Obtain current control value. */
-                        "	bic r1, #1			\n"/* Set privilege bit. */
-                        "	msr control, r1		\n"/* Write back new control value. */
-                        ::: "r1", "memory"
-                    );
-                    break;
-                    #endif /* #if( configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY == 1 ) */
+            break;
+    #else /* if ( configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY == 1 ) */
+        case portSVC_RAISE_PRIVILEGE:
+            __asm volatile(
+                "   mrs r1, control     \n"/* Obtain current control value. */
+                "   bic r1, #1          \n"/* Set privilege bit. */
+                "   msr control, r1     \n"/* Write back new control value. */
+                ::: "r1", "memory"
+            );
+            break;
+    #endif /* #if( configENFORCE_SYSTEM_CALLS_FROM_KERNEL_ONLY == 1 ) */
 
-                default: /* Unknown SVC call. */
-                    break;
+        default: /* Unknown SVC call. */
+            break;
     }
 }
 /*-----------------------------------------------------------*/
@@ -324,41 +322,41 @@ static void prvRestoreContextOfFirstTask( void )
 {
     __asm volatile
     (
-        "	ldr r0, =0xE000ED08				\n"/* Use the NVIC offset register to locate the stack. */
-        "	ldr r0, [r0]					\n"
-        "	ldr r0, [r0]					\n"
-        "	msr msp, r0						\n"/* Set the msp back to the start of the stack. */
-        "	ldr	r3, pxCurrentTCBConst2		\n"/* Restore the context. */
-        "	ldr r1, [r3]					\n"
-        "	ldr r0, [r1]					\n"/* The first item in the TCB is the task top of stack. */
-        "	add r1, r1, #4					\n"/* Move onto the second item in the TCB... */
-        "									\n"
-        "	dmb								\n"/* Complete outstanding transfers before disabling MPU. */
-        "	ldr r2, =0xe000ed94				\n"/* MPU_CTRL register. */
-        "	ldr r3, [r2]					\n"/* Read the value of MPU_CTRL. */
-        "	bic r3, #1						\n"/* r3 = r3 & ~1 i.e. Clear the bit 0 in r3. */
-        "	str r3, [r2]					\n"/* Disable MPU. */
-        "									\n"
-        "	ldr r2, =0xe000ed9c				\n"/* Region Base Address register. */
-        "	ldmia r1!, {r4-r11}				\n"/* Read 4 sets of MPU registers. */
-        "	stmia r2!, {r4-r11}				\n"/* Write 4 sets of MPU registers. */
-        "									\n"
-        "	ldr r2, =0xe000ed94				\n"/* MPU_CTRL register. */
-        "	ldr r3, [r2]					\n"/* Read the value of MPU_CTRL. */
-        "	orr r3, #1						\n"/* r3 = r3 | 1 i.e. Set the bit 0 in r3. */
-        "	str r3, [r2]					\n"/* Enable MPU. */
-        "	dsb								\n"/* Force memory writes before continuing. */
-        "									\n"
-        "	ldmia r0!, {r3, r4-r11}			\n"/* Pop the registers that are not automatically saved on exception entry. */
-        "	msr control, r3					\n"
-        "	msr psp, r0						\n"/* Restore the task stack pointer. */
-        "	mov r0, #0						\n"
-        "	msr	basepri, r0					\n"
-        "	ldr r14, =0xfffffffd			\n"/* Load exec return code. */
-        "	bx r14							\n"
-        "									\n"
-        "	.align 4						\n"
-        "pxCurrentTCBConst2: .word pxCurrentTCB	\n"
+        "   ldr r0, =0xE000ED08             \n"/* Use the NVIC offset register to locate the stack. */
+        "   ldr r0, [r0]                    \n"
+        "   ldr r0, [r0]                    \n"
+        "   msr msp, r0                     \n"/* Set the msp back to the start of the stack. */
+        "   ldr r3, pxCurrentTCBConst2      \n"/* Restore the context. */
+        "   ldr r1, [r3]                    \n"
+        "   ldr r0, [r1]                    \n"/* The first item in the TCB is the task top of stack. */
+        "   add r1, r1, #4                  \n"/* Move onto the second item in the TCB... */
+        "                                   \n"
+        "   dmb                             \n"/* Complete outstanding transfers before disabling MPU. */
+        "   ldr r2, =0xe000ed94             \n"/* MPU_CTRL register. */
+        "   ldr r3, [r2]                    \n"/* Read the value of MPU_CTRL. */
+        "   bic r3, #1                      \n"/* r3 = r3 & ~1 i.e. Clear the bit 0 in r3. */
+        "   str r3, [r2]                    \n"/* Disable MPU. */
+        "                                   \n"
+        "   ldr r2, =0xe000ed9c             \n"/* Region Base Address register. */
+        "   ldmia r1!, {r4-r11}             \n"/* Read 4 sets of MPU registers. */
+        "   stmia r2!, {r4-r11}             \n"/* Write 4 sets of MPU registers. */
+        "                                   \n"
+        "   ldr r2, =0xe000ed94             \n"/* MPU_CTRL register. */
+        "   ldr r3, [r2]                    \n"/* Read the value of MPU_CTRL. */
+        "   orr r3, #1                      \n"/* r3 = r3 | 1 i.e. Set the bit 0 in r3. */
+        "   str r3, [r2]                    \n"/* Enable MPU. */
+        "   dsb                             \n"/* Force memory writes before continuing. */
+        "                                   \n"
+        "   ldmia r0!, {r3, r4-r11}         \n"/* Pop the registers that are not automatically saved on exception entry. */
+        "   msr control, r3                 \n"
+        "   msr psp, r0                     \n"/* Restore the task stack pointer. */
+        "   mov r0, #0                      \n"
+        "   msr basepri, r0                 \n"
+        "   ldr r14, =0xfffffffd            \n"/* Load exec return code. */
+        "   bx r14                          \n"
+        "                                   \n"
+        "   .align 4                        \n"
+        "pxCurrentTCBConst2: .word pxCurrentTCB \n"
     );
 }
 /*-----------------------------------------------------------*/
@@ -372,68 +370,68 @@ BaseType_t xPortStartScheduler( void )
      * https://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html */
     configASSERT( ( configMAX_SYSCALL_INTERRUPT_PRIORITY ) );
 
-    #if ( configASSERT_DEFINED == 1 )
+#if ( configASSERT_DEFINED == 1 )
+    {
+        volatile uint32_t ulOriginalPriority;
+        volatile uint8_t * const pucFirstUserPriorityRegister = ( volatile uint8_t * const ) ( portNVIC_IP_REGISTERS_OFFSET_16 + portFIRST_USER_INTERRUPT_NUMBER );
+        volatile uint8_t ucMaxPriorityValue;
+
+        /* Determine the maximum priority from which ISR safe FreeRTOS API
+         * functions can be called.  ISR safe functions are those that end in
+         * "FromISR".  FreeRTOS maintains separate thread and ISR API functions
+         * to ensure interrupt entry is as fast and simple as possible.
+         *
+         * Save the interrupt priority value that is about to be clobbered. */
+        ulOriginalPriority = *pucFirstUserPriorityRegister;
+
+        /* Determine the number of priority bits available.  First write to all
+         * possible bits. */
+        *pucFirstUserPriorityRegister = portMAX_8_BIT_VALUE;
+
+        /* Read the value back to see how many bits stuck. */
+        ucMaxPriorityValue = *pucFirstUserPriorityRegister;
+
+        /* Use the same mask on the maximum system call priority. */
+        ucMaxSysCallPriority = configMAX_SYSCALL_INTERRUPT_PRIORITY & ucMaxPriorityValue;
+
+        /* Calculate the maximum acceptable priority group value for the number
+         * of bits read back. */
+        ulMaxPRIGROUPValue = portMAX_PRIGROUP_BITS;
+
+        while( ( ucMaxPriorityValue & portTOP_BIT_OF_BYTE ) == portTOP_BIT_OF_BYTE )
         {
-            volatile uint32_t ulOriginalPriority;
-            volatile uint8_t * const pucFirstUserPriorityRegister = ( volatile uint8_t * const ) ( portNVIC_IP_REGISTERS_OFFSET_16 + portFIRST_USER_INTERRUPT_NUMBER );
-            volatile uint8_t ucMaxPriorityValue;
-
-            /* Determine the maximum priority from which ISR safe FreeRTOS API
-             * functions can be called.  ISR safe functions are those that end in
-             * "FromISR".  FreeRTOS maintains separate thread and ISR API functions
-             * to ensure interrupt entry is as fast and simple as possible.
-             *
-             * Save the interrupt priority value that is about to be clobbered. */
-            ulOriginalPriority = *pucFirstUserPriorityRegister;
-
-            /* Determine the number of priority bits available.  First write to all
-             * possible bits. */
-            *pucFirstUserPriorityRegister = portMAX_8_BIT_VALUE;
-
-            /* Read the value back to see how many bits stuck. */
-            ucMaxPriorityValue = *pucFirstUserPriorityRegister;
-
-            /* Use the same mask on the maximum system call priority. */
-            ucMaxSysCallPriority = configMAX_SYSCALL_INTERRUPT_PRIORITY & ucMaxPriorityValue;
-
-            /* Calculate the maximum acceptable priority group value for the number
-             * of bits read back. */
-            ulMaxPRIGROUPValue = portMAX_PRIGROUP_BITS;
-
-            while( ( ucMaxPriorityValue & portTOP_BIT_OF_BYTE ) == portTOP_BIT_OF_BYTE )
-            {
-                ulMaxPRIGROUPValue--;
-                ucMaxPriorityValue <<= ( uint8_t ) 0x01;
-            }
-
-            #ifdef __NVIC_PRIO_BITS
-                {
-                    /* Check the CMSIS configuration that defines the number of
-                     * priority bits matches the number of priority bits actually queried
-                     * from the hardware. */
-                    configASSERT( ( portMAX_PRIGROUP_BITS - ulMaxPRIGROUPValue ) == __NVIC_PRIO_BITS );
-                }
-            #endif
-
-            #ifdef configPRIO_BITS
-                {
-                    /* Check the FreeRTOS configuration that defines the number of
-                     * priority bits matches the number of priority bits actually queried
-                     * from the hardware. */
-                    configASSERT( ( portMAX_PRIGROUP_BITS - ulMaxPRIGROUPValue ) == configPRIO_BITS );
-                }
-            #endif
-
-            /* Shift the priority group value back to its position within the AIRCR
-             * register. */
-            ulMaxPRIGROUPValue <<= portPRIGROUP_SHIFT;
-            ulMaxPRIGROUPValue &= portPRIORITY_GROUP_MASK;
-
-            /* Restore the clobbered interrupt priority register to its original
-             * value. */
-            *pucFirstUserPriorityRegister = ulOriginalPriority;
+            ulMaxPRIGROUPValue--;
+            ucMaxPriorityValue <<= ( uint8_t ) 0x01;
         }
-    #endif /* conifgASSERT_DEFINED */
+
+        #ifdef __NVIC_PRIO_BITS
+            {
+                /* Check the CMSIS configuration that defines the number of
+                 * priority bits matches the number of priority bits actually queried
+                 * from the hardware. */
+                configASSERT( ( portMAX_PRIGROUP_BITS - ulMaxPRIGROUPValue ) == __NVIC_PRIO_BITS );
+            }
+        #endif
+
+        #ifdef configPRIO_BITS
+            {
+                /* Check the FreeRTOS configuration that defines the number of
+                 * priority bits matches the number of priority bits actually queried
+                 * from the hardware. */
+                configASSERT( ( portMAX_PRIGROUP_BITS - ulMaxPRIGROUPValue ) == configPRIO_BITS );
+            }
+        #endif
+
+        /* Shift the priority group value back to its position within the AIRCR
+         * register. */
+        ulMaxPRIGROUPValue <<= portPRIGROUP_SHIFT;
+        ulMaxPRIGROUPValue &= portPRIORITY_GROUP_MASK;
+
+        /* Restore the clobbered interrupt priority register to its original
+         * value. */
+        *pucFirstUserPriorityRegister = ulOriginalPriority;
+    }
+#endif /* conifgASSERT_DEFINED */
 
     /* Make PendSV and SysTick the same priority as the kernel, and the SVC
      * handler higher priority so it can be used to exit a critical section (where
@@ -453,17 +451,17 @@ BaseType_t xPortStartScheduler( void )
 
     /* Start the first task. */
     __asm volatile (
-        " ldr r0, =0xE000ED08 	\n"/* Use the NVIC offset register to locate the stack. */
-        " ldr r0, [r0] 			\n"
-        " ldr r0, [r0] 			\n"
-        " msr msp, r0			\n"/* Set the msp back to the start of the stack. */
-        " cpsie i				\n"/* Globally enable interrupts. */
-        " cpsie f				\n"
-        " dsb					\n"
-        " isb					\n"
-        " svc %0				\n"/* System call to start first task. */
-        " nop					\n"
-        " .ltorg				\n"
+        " ldr r0, =0xE000ED08   \n"/* Use the NVIC offset register to locate the stack. */
+        " ldr r0, [r0]          \n"
+        " ldr r0, [r0]          \n"
+        " msr msp, r0           \n"/* Set the msp back to the start of the stack. */
+        " cpsie i               \n"/* Globally enable interrupts. */
+        " cpsie f               \n"
+        " dsb                   \n"
+        " isb                   \n"
+        " svc %0                \n"/* System call to start first task. */
+        " nop                   \n"
+        " .ltorg                \n"
         ::"i" ( portSVC_START_SCHEDULER ) : "memory" );
 
     /* Should not get here! */
@@ -510,55 +508,54 @@ void xPortPendSVHandler( void )
 {
     /* This is a naked function. */
 
-    __asm volatile
-    (
-        "	mrs r0, psp							\n"
-        "										\n"
-        "	ldr	r3, pxCurrentTCBConst			\n"/* Get the location of the current TCB. */
-        "	ldr	r2, [r3]						\n"
-        "										\n"
-        "	mrs r1, control						\n"
-        "	stmdb r0!, {r1, r4-r11}				\n"/* Save the remaining registers. */
-        "	str r0, [r2]						\n"/* Save the new top of stack into the first member of the TCB. */
-        "										\n"
-        "	stmdb sp!, {r3, r14}				\n"
-        "	mov r0, %0							\n"
-        "	msr basepri, r0						\n"
-        "	dsb									\n"
-        "	isb									\n"
-        "	bl vTaskSwitchContext				\n"
-        "	mov r0, #0							\n"
-        "	msr basepri, r0						\n"
-        "	ldmia sp!, {r3, r14}				\n"
-        "										\n"/* Restore the context. */
-        "	ldr r1, [r3]						\n"
-        "	ldr r0, [r1]						\n"/* The first item in the TCB is the task top of stack. */
-        "	add r1, r1, #4						\n"/* Move onto the second item in the TCB... */
-        "										\n"
-        "	dmb									\n"/* Complete outstanding transfers before disabling MPU. */
-        "	ldr r2, =0xe000ed94					\n"/* MPU_CTRL register. */
-        "	ldr r3, [r2]						\n"/* Read the value of MPU_CTRL. */
-        "	bic r3, #1							\n"/* r3 = r3 & ~1 i.e. Clear the bit 0 in r3. */
-        "	str r3, [r2]						\n"/* Disable MPU. */
-        "										\n"
-        "	ldr r2, =0xe000ed9c					\n"/* Region Base Address register. */
-        "	ldmia r1!, {r4-r11}					\n"/* Read 4 sets of MPU registers. */
-        "	stmia r2!, {r4-r11}					\n"/* Write 4 sets of MPU registers. */
-        "										\n"
-        "	ldr r2, =0xe000ed94					\n"/* MPU_CTRL register. */
-        "	ldr r3, [r2]						\n"/* Read the value of MPU_CTRL. */
-        "	orr r3, #1							\n"/* r3 = r3 | 1 i.e. Set the bit 0 in r3. */
-        "	str r3, [r2]						\n"/* Enable MPU. */
-        "	dsb									\n"/* Force memory writes before continuing. */
-        "										\n"
-        "	ldmia r0!, {r3, r4-r11}				\n"/* Pop the registers that are not automatically saved on exception entry. */
-        "	msr control, r3						\n"
-        "										\n"
-        "	msr psp, r0							\n"
-        "	bx r14								\n"
-        "										\n"
-        "	.align 4							\n"
-        "pxCurrentTCBConst: .word pxCurrentTCB	\n"
+    __asm volatile(
+        "   mrs r0, psp                         \n"
+        "                                       \n"
+        "   ldr r3, pxCurrentTCBConst           \n"/* Get the location of the current TCB. */
+        "   ldr r2, [r3]                        \n"
+        "                                       \n"
+        "   mrs r1, control                     \n"
+        "   stmdb r0!, {r1, r4-r11}             \n"/* Save the remaining registers. */
+        "   str r0, [r2]                        \n"/* Save the new top of stack into the first member of the TCB. */
+        "                                       \n"
+        "   stmdb sp!, {r3, r14}                \n"
+        "   mov r0, %0                          \n"
+        "   msr basepri, r0                     \n"
+        "   dsb                                 \n"
+        "   isb                                 \n"
+        "   bl vTaskSwitchContext               \n"
+        "   mov r0, #0                          \n"
+        "   msr basepri, r0                     \n"
+        "   ldmia sp!, {r3, r14}                \n"
+        "                                       \n"/* Restore the context. */
+        "   ldr r1, [r3]                        \n"
+        "   ldr r0, [r1]                        \n"/* The first item in the TCB is the task top of stack. */
+        "   add r1, r1, #4                      \n"/* Move onto the second item in the TCB... */
+        "                                       \n"
+        "   dmb                                 \n"/* Complete outstanding transfers before disabling MPU. */
+        "   ldr r2, =0xe000ed94                 \n"/* MPU_CTRL register. */
+        "   ldr r3, [r2]                        \n"/* Read the value of MPU_CTRL. */
+        "   bic r3, #1                          \n"/* r3 = r3 & ~1 i.e. Clear the bit 0 in r3. */
+        "   str r3, [r2]                        \n"/* Disable MPU. */
+        "                                       \n"
+        "   ldr r2, =0xe000ed9c                 \n"/* Region Base Address register. */
+        "   ldmia r1!, {r4-r11}                 \n"/* Read 4 sets of MPU registers. */
+        "   stmia r2!, {r4-r11}                 \n"/* Write 4 sets of MPU registers. */
+        "                                       \n"
+        "   ldr r2, =0xe000ed94                 \n"/* MPU_CTRL register. */
+        "   ldr r3, [r2]                        \n"/* Read the value of MPU_CTRL. */
+        "   orr r3, #1                          \n"/* r3 = r3 | 1 i.e. Set the bit 0 in r3. */
+        "   str r3, [r2]                        \n"/* Enable MPU. */
+        "   dsb                                 \n"/* Force memory writes before continuing. */
+        "                                       \n"
+        "   ldmia r0!, {r3, r4-r11}             \n"/* Pop the registers that are not automatically saved on exception entry. */
+        "   msr control, r3                     \n"
+        "                                       \n"
+        "   msr psp, r0                         \n"
+        "   bx r14                              \n"
+        "                                       \n"
+        "   .align 4                            \n"
+        "pxCurrentTCBConst: .word pxCurrentTCB  \n"
         ::"i" ( configMAX_SYSCALL_INTERRUPT_PRIORITY )
     );
 }
@@ -686,16 +683,15 @@ static uint32_t prvGetMPURegionSizeSetting( uint32_t ulActualSizeInBytes )
 
 BaseType_t xIsPrivileged( void ) /* __attribute__ (( naked )) */
 {
-    __asm volatile
-    (
-        "	mrs r0, control							\n"/* r0 = CONTROL. */
-        "	tst r0, #1								\n"/* Perform r0 & 1 (bitwise AND) and update the conditions flag. */
-        "	ite ne									\n"
-        "	movne r0, #0							\n"/* CONTROL[0]!=0. Return false to indicate that the processor is not privileged. */
-        "	moveq r0, #1							\n"/* CONTROL[0]==0. Return true to indicate that the processor is privileged. */
-        "	bx lr									\n"/* Return. */
-        "											\n"
-        "	.align 4								\n"
+    __asm volatile(
+        "   mrs r0, control                         \n"/* r0 = CONTROL. */
+        "   tst r0, #1                              \n"/* Perform r0 & 1 (bitwise AND) and update the conditions flag. */
+        "   ite ne                                  \n"
+        "   movne r0, #0                            \n"/* CONTROL[0]!=0. Return false to indicate that the processor is not privileged. */
+        "   moveq r0, #1                            \n"/* CONTROL[0]==0. Return true to indicate that the processor is privileged. */
+        "   bx lr                                   \n"/* Return. */
+        "                                           \n"
+        "   .align 4                                \n"
         ::: "r0", "memory"
     );
 }
@@ -703,12 +699,11 @@ BaseType_t xIsPrivileged( void ) /* __attribute__ (( naked )) */
 
 void vResetPrivilege( void ) /* __attribute__ (( naked )) */
 {
-    __asm volatile
-    (
-        "	mrs r0, control							\n"/* r0 = CONTROL. */
-        "	orr r0, #1								\n"/* r0 = r0 | 1. */
-        "	msr control, r0							\n"/* CONTROL = r0. */
-        "	bx lr									\n"/* Return to the caller. */
+    __asm volatile(
+        "   mrs r0, control                         \n"/* r0 = CONTROL. */
+        "   orr r0, #1                              \n"/* r0 = r0 | 1. */
+        "   msr control, r0                         \n"/* CONTROL = r0. */
+        "   bx lr                                   \n"/* Return to the caller. */
         ::: "r0", "memory"
     );
 }
@@ -841,10 +836,10 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
              * be set to a value equal to or numerically *higher* than
              * configMAX_SYSCALL_INTERRUPT_PRIORITY.
              *
-             * Interrupts that	use the FreeRTOS API must not be left at their
-             * default priority of	zero as that is the highest possible priority,
+             * Interrupts that  use the FreeRTOS API must not be left at their
+             * default priority of  zero as that is the highest possible priority,
              * which is guaranteed to be above configMAX_SYSCALL_INTERRUPT_PRIORITY,
-             * and	therefore also guaranteed to be invalid.
+             * and  therefore also guaranteed to be invalid.
              *
              * FreeRTOS maintains separate thread and ISR API functions to ensure
              * interrupt entry is as fast and simple as possible.

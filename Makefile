@@ -15,20 +15,20 @@ srctree   := $(shell pwd)
 
 ###########
 # select board
-BOARD=STM32-P107 
-# BOARD=STM32F4-Discovery 
-# BOARD=STM32F429I-Discovery
+# BOARD=STM32-P107
+# BOARD=STM32F4-Discovery
+BOARD=STM32F429I-Discovery
 
 ##########
 # select APP
-APP        := demo
-# APP        := trace_demo
+# APP        := demo
+APP        := trace_demo
 
 ##########
 # select CPU
-# ARCH      := ARM_CM3
+ARCH      := ARM_CM3
 # ARCH      := ARM_CM4F
-ARCH      := ARM_CM4F_SoftFP
+# ARCH      := ARM_CM4F_SoftFP
 
 
 CORES      := 1
@@ -82,19 +82,24 @@ TARGET_LDS = $(DEVICE_SRC_DIR)/stm32_flash.ld
 ###########################################
 APP_SRC_DIR := app
 
+APP_SRC = $(APP_SRC_DIR)/$(APP)/main.c
+INCLUDES  += -I$(APP_SRC_DIR) -I$(APP_SRC_DIR)/$(APP)
+
 ifeq ("$(APP)","demo")
-APP_SRC = $(APP_SRC_DIR)/demo/main.c
 
 else ifeq ("$(APP)","trace_demo")
-APP_SRC = \
-	$(APP_SRC_DIR)/
+
+APP_SRC += \
+	$(APP_SRC_DIR)/$(APP)/TraceRecorder/trcKernelPort.c \
+	$(APP_SRC_DIR)/$(APP)/TraceRecorder/trcSnapshotRecorder.c \
+	$(APP_SRC_DIR)/$(APP)/TraceRecorder/trcStreamingRecorder.c
+
+INCLUDES  += -I$(APP_SRC_DIR)/$(APP)/TraceRecorder/include
+INCLUDES  += -I$(APP_SRC_DIR)/$(APP)/TraceRecorder/config
 
 endif
 
-
 APP_OBJS := $(APP_SRC:.c=.o)
-
-INCLUDES  += -I$(APP_SRC_DIR) -I$(APP_SRC_DIR)/$(APP)
 ###########################################
 # freertos
 ###########################################
@@ -107,8 +112,8 @@ FREERTOS_SRC = \
     $(FREERTOS_SRC_DIR)/tasks.c \
     $(FREERTOS_SRC_DIR)/timers.c \
     $(FREERTOS_SRC_DIR)/event_groups.c \
-	$(FREERTOS_SRC_DIR)/stream_buffer.c \
-    $(FREERTOS_SRC_DIR)/portable/MemMang/heap_4.c
+    $(FREERTOS_SRC_DIR)/stream_buffer.c \
+    $(FREERTOS_SRC_DIR)/portable/MemMang/heap_2.c
 
 # FREERTOS_SRC += $(FREERTOS_SRC_DIR)/portable/Common/mpu_wrappers.c
 
@@ -121,7 +126,7 @@ FREERTOS_OBJS := $(PORT_ASM:.S=.o) $(PORT_SRC:.c=.o) $(FREERTOS_SRC:.c=.o)
 
 INCLUDES  += \
 	-I$(FREERTOS_SRC_DIR)/include \
-	-I$(FREERTOS_SRC_DIR)/portable/GCC//$(ARCH)
+	-I$(FREERTOS_SRC_DIR)/portable/GCC/$(ARCH)
 
 ###########################################
 # flags
@@ -129,7 +134,9 @@ INCLUDES  += \
 LDFLAGS   := -L. -T $(TARGET_LDS) -Wl,-Map,"$(PROG_ELF).map"
 
 LDFLAGS   += $(ARCH_FLAGS)
-LDFLAGS   += -Wl,--start-group -lc -lgcc -lm -Wl,--end-group --specs=nosys.specs
+# LDFLAGS   += -Wl,--start-group -lc -lgcc -lm -Wl,--end-group --specs=nosys.specs
+LDFLAGS   += --specs=nosys.specs -O0 -g
+
 
 CFLAGS    := -Wall -MMD -MP $(ARCH_FLAGS) -ffunction-sections -fdata-sections --specs=nano.specs $(INCLUDES)
 CFLAGS    += -O0 -g
@@ -139,13 +146,14 @@ ifeq ($(ARCH), ARM_CM3)
 
 else ifeq ($(ARCH), ARM_CM4F_SoftFP)
 CFLAGS    += -mfpu=fpv4-sp-d16 -mfloat-abi=softfp
+LFLAGS    += -mfpu=fpv4-sp-d16 -mfloat-abi=softfp
 endif
 
 
 OBJS := $(DEVICE_OBJS) $(APP_OBJS)
 OBJS += $(FREERTOS_OBJS)
 
-.PHONY: all clean qemu qemu_gdb gtags
+.PHONY: all clean qemu qemu_gdb_server qemu_gdb gtags
 
 all: $(PROG_ELF) $(PROG_BIN)
 
@@ -168,21 +176,26 @@ $(PROG_ELF): $(OBJS) Makefile
 $(PROG_BIN): $(PROG_ELF)
 	@$(OBJCOPY) -O binary $< $@
 
-# --semihosting-cmdline hello_rtos 1 2 3
+
 qemu: $(PROG_ELF)
 	@echo ""
 	@echo "Launching QEMU! Press Ctrl-A, X to exit"
 	qemu-system-gnuarmeclipse --verbose --verbose --board $(BOARD) --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --semihosting-cmdline $(APP) 1 2 3
 	@echo ""
 
-qemu_gdb: $(PROG_ELF)
+qemu_gdb_server: $(PROG_ELF)
 	@echo ""
 	@echo "Launching QEMU! Press Ctrl-A, X to exit"
-	qemu-system-gnuarmeclipse --verbose --board $(BOARD) --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --gdb tcp::1234 -S
+	qemu-system-gnuarmeclipse --verbose --verbose --board $(BOARD) --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --gdb tcp::1234 -S
 	@echo ""
 
-#gdb: $(PROG_ELF)
-#	$(GDB) $(PROG_ELF) --command=init.gdb
+
+qemu_gdb: $(PROG_ELF)
+	@echo ""
+	@echo "Start GDB..."
+	$(GDB) -ex "target remote:1234" $(PROG_ELF)
+	@echo ""
+
 
 clean:
 	@$(RM) -f $(OBJS) $(OBJS:.o=.d) $(FREERTOS_OBJS) $(PROG_ELF) $(PROG_BIN) *.dis *.map
