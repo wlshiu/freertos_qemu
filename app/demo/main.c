@@ -20,6 +20,8 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include <stdio.h>
+#include "trace.h"
 #include "stm32f4_discovery.h"
 
 
@@ -64,6 +66,14 @@ int main(void)
     /* Init and start tracing */
     // vTraceEnable(TRC_INIT);
     // vTraceEnable(TRC_START);
+
+    trace_puts ("Hello ARM World!");
+
+    // Send a message to the standard output.
+    puts ("1. Standard output message.");
+
+    // Send a message to the standard error.
+    fprintf (stderr, "2. Standard error message.\n");
 
     /* LED configurations:
      * LD4: GPIO PD12 (0: OFF, 1: ON)

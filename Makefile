@@ -21,8 +21,8 @@ BOARD=STM32F4-Discovery
 
 ##########
 # select APP
-# APP        := demo
-APP        := trace_demo
+APP        := demo
+# APP        := trace_demo
 
 ##########
 # select CPU
@@ -51,7 +51,7 @@ DEVICE_SRC_DIR := device/
 ###########################################
 
 
-DEVICE_SRC = \
+DEVICE_SRC := \
 	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal.c \
 	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_cortex.c \
 	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_gpio.c \
@@ -62,6 +62,20 @@ DEVICE_SRC = \
 	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_dma.c \
 	$(DEVICE_SRC_DIR)/STM32F4_Discovery/stm32f4_discovery.c \
 	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Source/system_stm32f4xx.c
+
+
+## system call
+DEVICE_SRC += \
+	$(DEVICE_SRC_DIR)/system/syscall/_write.c \
+	$(DEVICE_SRC_DIR)/system/syscall/_exit.c \
+	$(DEVICE_SRC_DIR)/system/syscall/_sbrk.c \
+	$(DEVICE_SRC_DIR)/system/syscall/_syscalls.c
+
+DEVICE_SRC += \
+	$(DEVICE_SRC_DIR)/system/trace.c \
+	$(DEVICE_SRC_DIR)/system/trace_impl.c
+
+INCLUDES += -I$(DEVICE_SRC_DIR)/system/inc
 
 
 DEVICE_ASM_SRC = \
@@ -138,14 +152,12 @@ INCLUDES  += \
 LDFLAGS   := -L. -T $(TARGET_LDS) -Wl,-Map,"$(PROG_ELF).map"
 
 LDFLAGS   += $(ARCH_FLAGS)
-# LDFLAGS   += -Wl,--start-group -lc -lgcc -lm -Wl,--end-group --specs=nosys.specs
-LDFLAGS   += --specs=nosys.specs -O0 -g
 
-
-CFLAGS    := -Wall -MMD -MP $(ARCH_FLAGS) -ffunction-sections -fdata-sections --specs=nano.specs $(INCLUDES)
+CFLAGS    := -Wall -MMD -MP $(ARCH_FLAGS) -ffunction-sections -fdata-sections $(INCLUDES)
 CFLAGS    += -O0 -g
-# CFLAGS    += -DUSE_STDPERIPH_DRIVER -DSTM32F4XX
 CFLAGS    += -DSTM32F407xx -DUSE_HAL_DRIVER
+CFLAGS    += -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG -DOS_USE_SEMIHOSTING
+# CFLAGS    += --specs=nano.specs
 
 ifeq ($(ARCH), ARM_CM3)
 

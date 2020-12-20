@@ -39,6 +39,9 @@ _estack = 0x20020000;    /* end of 128K RAM on AHB bus*/
 _Min_Heap_Size = 0;      /* required amount of heap  */
 _Min_Stack_Size = 0x400; /* required amount of stack */
 
+PROVIDE ( _Heap_Begin = __usr_heapp_start__ ) ;
+PROVIDE ( _Heap_Limit = __usr_heapp_start__ + _Min_Heap_Size ) ;
+
 /* Specify the memory areas */
 MEMORY
 {
@@ -145,6 +148,7 @@ SECTIONS
         . = ALIGN(4);
         PROVIDE ( end = . );
         PROVIDE ( _end = . );
+        __usr_heapp_start__ = .;
         . = . + _Min_Heap_Size;
         . = . + _Min_Stack_Size;
         . = ALIGN(4);
