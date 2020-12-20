@@ -16,8 +16,8 @@ srctree   := $(shell pwd)
 ###########
 # select board
 # BOARD=STM32-P107
-# BOARD=STM32F4-Discovery
-BOARD=STM32F429I-Discovery
+BOARD=STM32F4-Discovery
+# BOARD=STM32F429I-Discovery
 
 ##########
 # select APP
@@ -52,29 +52,30 @@ DEVICE_SRC_DIR := device/
 
 
 DEVICE_SRC = \
-	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_syscfg.c \
-	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/misc.c \
-	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_gpio.c \
-	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_rcc.c \
-	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_exti.c \
-	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_i2c.c \
-	$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_dma.c \
-	$(DEVICE_SRC_DIR)/STM32F429I_Discovery/stm32f429i_discovery.c \
-	$(DEVICE_SRC_DIR)/STM32F4xx/src/stm32f4xx_it.c \
-	$(DEVICE_SRC_DIR)/STM32F4xx/src/system_stm32f4xx.c
+	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_cortex.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_gpio.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_rcc.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_rcc_ex.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_spi.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_i2c.c \
+	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_dma.c \
+	$(DEVICE_SRC_DIR)/STM32F4_Discovery/stm32f4_discovery.c \
+	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Source/system_stm32f4xx.c
 
 
 DEVICE_ASM_SRC = \
-	$(DEVICE_SRC_DIR)/STM32F4xx/src/startup_stm32f429_439xx.S
+	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Source/startup_stm32f429_439xx.S
 
 
 DEVICE_OBJS := $(DEVICE_SRC:.c=.o) $(DEVICE_ASM_SRC:.S=.o)
 
 INCLUDES += -I$(DEVICE_SRC_DIR) \
 			-I$(DEVICE_SRC_DIR)/STM32F4xx/inc \
-			-I$(DEVICE_SRC_DIR)/STM32F4xx_StdPeriph_Driver/inc \
-			-I$(DEVICE_SRC_DIR)/STM32F429I_Discovery \
-			-I$(DEVICE_SRC_DIR)/CMSIS/Include
+			-I$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/inc \
+			-I$(DEVICE_SRC_DIR)/STM32F4_Discovery \
+			-I$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Include \
+			-I$(DEVICE_SRC_DIR)/CMSIS/Core/Include
 
 TARGET_LDS = $(DEVICE_SRC_DIR)/stm32_flash.ld
 ###########################################
@@ -86,6 +87,9 @@ APP_SRC = $(APP_SRC_DIR)/$(APP)/main.c
 INCLUDES  += -I$(APP_SRC_DIR) -I$(APP_SRC_DIR)/$(APP)
 
 ifeq ("$(APP)","demo")
+APP_SRC += \
+	$(APP_SRC_DIR)/$(APP)/stm32f4xx_it.c
+
 
 else ifeq ("$(APP)","trace_demo")
 
@@ -140,7 +144,8 @@ LDFLAGS   += --specs=nosys.specs -O0 -g
 
 CFLAGS    := -Wall -MMD -MP $(ARCH_FLAGS) -ffunction-sections -fdata-sections --specs=nano.specs $(INCLUDES)
 CFLAGS    += -O0 -g
-CFLAGS    += -DUSE_STDPERIPH_DRIVER -DSTM32F4XX
+# CFLAGS    += -DUSE_STDPERIPH_DRIVER -DSTM32F4XX
+CFLAGS    += -DSTM32F407xx -DUSE_HAL_DRIVER
 
 ifeq ($(ARCH), ARM_CM3)
 

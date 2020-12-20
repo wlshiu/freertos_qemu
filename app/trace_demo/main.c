@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file    IO_Toggle/main.c
+  * @file    main.c
   * @author  MCD Application Team
   * @version V1.0.0
   * @date    19-September-2011
@@ -20,9 +20,8 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f429i_discovery.h"
-#include "stm32f4xx_gpio.h"
-#include "stm32f4xx_rcc.h"
+#include "stm32f4_discovery.h"
+
 
 /* Kernel includes. */
 #include "FreeRTOS.h"
@@ -30,17 +29,7 @@
 #include "timers.h"
 
 
-/** @addtogroup STM32F4_Discovery_Peripheral_Examples
-  * @{
-  */
-
-/** @addtogroup IO_Toggle
-  * @{
-  */
-
 /* Private typedef -----------------------------------------------------------*/
-GPIO_InitTypeDef  GPIO_InitStructure;
-
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
@@ -49,6 +38,7 @@ GPIO_InitTypeDef  GPIO_InitStructure;
 /* Private functions ---------------------------------------------------------*/
 void ToggleLED1_Task(void*);
 void ToggleLED2_Task(void*);
+
 /**
   * @brief  Main program
   * @param  None
@@ -56,27 +46,35 @@ void ToggleLED2_Task(void*);
   */
 int main(void)
 {
-    /*!< At this stage the microcontroller clock setting is already configured,
-         this is done through SystemInit() function which is called from startup
-         file (startup_stm32f4xx.s) before to branch to application main.
-         To reconfigure the default setting of SystemInit() function, refer to
-          system_stm32f4xx.c file
-       */
+    /* Update SystemCoreClock variable according to Clock Register Values. The tick frequency is
+     * set by the scheduler.
+     */
+    SystemCoreClockUpdate();
 
-    /* GPIOG Periph clock enable */
-    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOG, ENABLE);
+    /* Most systems default to the wanted configuration, with the noticeable exception of the STM32
+     * driver library. If you are using an STM32 with the STM32 driver library then ensure all the
+     * priority bits are assigned to be preempt priority bits by calling
+     * NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4) before the RTOS is started.
+     */
+    //HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4); // !PRIGROUP is unimplemented in QEMU ARM 2.8.0-9.2
 
-    /* Configure PG13, PG14 in output pushpull mode */
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13 | GPIO_Pin_14;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_Init(GPIOG, &GPIO_InitStructure);
+    // GPIOD Peripheral clock enable.
+    __HAL_RCC_GPIOD_CLK_ENABLE();
 
-    /* Init and start tracing*/
-    vTraceEnable(TRC_INIT);
-    vTraceEnable(TRC_START);
+    /* Init and start tracing */
+    // vTraceEnable(TRC_INIT);
+    // vTraceEnable(TRC_START);
+
+    /* LED configurations:
+     * LD4: GPIO PD12 (0: OFF, 1: ON)
+     * LD3: GPIO PD13 (0: OFF, 1: ON)
+     * LD5: GPIO PD14 (0: OFF, 1: ON)
+     * LD6: GPIO PD15 (0: OFF, 1: ON)
+     */
+    BSP_LED_Init(LED4);
+    BSP_LED_Init(LED3);
+    BSP_LED_Init(LED5);
+    BSP_LED_Init(LED6);
 
     /* Create tasks */
     xTaskCreate(
@@ -109,31 +107,25 @@ int main(void)
 
 }
 
+
 /**
  * ToggleLED1_Task: Toggle LED1 via RTOS Timer
  */
 void ToggleLED1_Task(void *pvParameters)
 {
-    int led = 0;
     while (1)
     {
-        if(led == 0)
-        {
-            GPIO_SetBits(GPIOG, GPIO_Pin_13);
-            led = 1;
-        }
-        else
-        {
-            GPIO_ResetBits(GPIOG, GPIO_Pin_13);
-            led = 0;
-        }
-        /*
-        Delay for a period of time. vTaskDelay() places the task into
-        the Blocked state until the period has expired.
-        The delay period is spacified in 'ticks'. We can convert
-        yhis in milisecond with the constant portTICK_RATE_MS.
-        */
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        BSP_LED_On(LED4); // LED4 ON
+        vTaskDelay(500 / portTICK_RATE_MS);
+
+        BSP_LED_On(LED3); // LED3 ON
+        vTaskDelay(500 / portTICK_RATE_MS);
+
+        BSP_LED_Off(LED3);
+        vTaskDelay(500 / portTICK_RATE_MS);
+
+        BSP_LED_Off(LED4);
+        vTaskDelay(500 / portTICK_RATE_MS);
     }
 }
 
@@ -141,37 +133,29 @@ void ToggleLED1_Task(void *pvParameters)
  * ToggleLED2_Task: Toggle LED2 via RTOS Timer
  */
 void ToggleLED2_Task(void *pvParameters)
-
 {
-    int led = 0;
     while (1)
     {
-        if(led == 0)
-        {
-            GPIO_SetBits(GPIOG, GPIO_Pin_14);
-            led = 1;
-        }
-        else
-        {
-            GPIO_ResetBits(GPIOG, GPIO_Pin_14);
-            led = 0;
-        }
-        /*
-        Delay for a period of time. vTaskDelay() places the task into
-        the Blocked state until the period has expired.
-        The delay period is spacified in 'ticks'. We can convert
-        yhis in milisecond with the constant portTICK_RATE_MS.
-        */
-        vTaskDelay(2000 / portTICK_RATE_MS);
+        BSP_LED_On(LED5); // LED5 ON
+        vTaskDelay(500 / portTICK_RATE_MS);
+
+        BSP_LED_On(LED6); // LED6 ON
+        vTaskDelay(500 / portTICK_RATE_MS);
+
+        BSP_LED_Off(LED5);
+        vTaskDelay(500 / portTICK_RATE_MS);
+
+        BSP_LED_Off(LED6);
+        vTaskDelay(500 / portTICK_RATE_MS);
     }
 }
+
+
+/*-----------------------------------------------------------*/
 
 void vApplicationTickHook( void )
 {
 }
-/*-----------------------------------------------------------*/
-
-
 /*-----------------------------------------------------------*/
 
 void vApplicationMallocFailedHook( void )
@@ -237,13 +221,5 @@ void assert_failed(uint8_t* file, uint32_t line)
     }
 }
 #endif
-
-/**
-  * @}
-  */
-
-/**
-  * @}
-  */
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
