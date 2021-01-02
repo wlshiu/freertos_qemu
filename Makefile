@@ -15,6 +15,7 @@ PLAT := AG101P
 # PLAT := AE210P
 # PLAT := AE3XX
 
+DEBUG=1
 #####################
 # Select ADDR: 4GB, 16MB
 ADDR ?= 4GB
@@ -258,5 +259,3 @@ clean :
 ifneq ($(MAKECMDGOALS),clean)
 -include $(OBJS:.o=.d)
 endif
-
-
