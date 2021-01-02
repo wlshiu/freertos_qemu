@@ -11,6 +11,7 @@
     ```
 
 + set toolchain pathin of `z_nds32_simulator.sh`
+    > simulator not supports FPU (toolchain MUST not be nds32le-elf-mculib-v3s)
 
     ```
     $ vi ./z_nds32_simulator.sh
