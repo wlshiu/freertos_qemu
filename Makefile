@@ -20,7 +20,7 @@ DEBUG=1
 # Select ADDR: 4GB, 16MB
 ADDR ?= 4GB
 
-CONFIG_ENABLE_MPU := 0
+CONFIG_ENABLE_MPU := 1
 
 ifeq ($(DEBUG),1)
 	OPTIM   := -O0 -g3
@@ -203,6 +203,8 @@ ASFLAGS = -D__ASSEMBLY__ $(CFLAGS) -c
 
 LDFLAGS = -T$(LDSCRIPT) $(OPTIM) -static -nostartfiles -Wl,--gc-sections,--undefine=__rtos_signature_freertos_v10_1_1 \
 	$(CMODEL)
+
+LDFLAGS += -Wl,-Map=$(PROG).map
 
 GCCVER 	= $(shell $(GCC) --version | grep gcc | cut -d" " -f9)
 
