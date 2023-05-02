@@ -16,21 +16,41 @@ srctree   := $(shell pwd)
 ###########
 # select board
 # BOARD=STM32-P107
-BOARD=STM32F4-Discovery
 # BOARD=STM32F429I-Discovery
+BOARD=STM32F4-Discovery
+# BOARD=NUCLEO-F072RB
 
-##########
-# select APP
-APP        := demo
-# APP        := trace_demo
 
 ##########
 # select CPU
+ifeq ($(BOARD), STM32-P107)
 ARCH      := ARM_CM3
+MCU    	  := STM32F103RB
+
+else ifeq ($(BOARD), NUCLEO-F072RB)
+ARCH      := ARM_CM0
+MCU    	  := STM32F051R8
+else ifeq ($(BOARD), STM32F4-Discovery)
 # ARCH      := ARM_CM4F
-# ARCH      := ARM_CM4F_SoftFP
+ARCH      := ARM_CM4F_SoftFP
+MCU    	  := STM32F429ZI
+endif
+
+##########
+# select APP
+ifeq ($(ARCH), ARM_CM0)
+APP        := demo_m0
+
+else ifeq ($(ARCH), ARM_CM4F_SoftFP)
+APP        := demo_m4
+
+endif
+
+# APP        := trace_demo
 
 
+##########
+# common variables
 CORES      := 1
 INCLUDES   :=
 LIBRARY    :=
@@ -39,18 +59,66 @@ LIBS       :=
 PROG_ELF   := $(APP).elf
 PROG_BIN   := $(APP).bin
 
+ARCH_FLAGS := -mthumb -mlittle-endian -mthumb-interwork
 
-ARCH_FLAGS := -march=armv7e-m -mcpu=cortex-m4 -mthumb -mlittle-endian -mthumb-interwork
-
+ifeq ($(ARCH), ARM_CM0)
+ARCH_FLAGS += -march=armv6-m -mcpu=cortex-m0
+else
+ARCH_FLAGS += -march=armv7e-m -mcpu=cortex-m4
+endif
 
 
 DEVICE_SRC_DIR := device/
 
+INCLUDES       := -I$(DEVICE_SRC_DIR) -I$(DEVICE_SRC_DIR)/CMSIS/Core/Include
+
 ###########################################
 # device
 ###########################################
+ifeq ($(ARCH), ARM_CM0)
+DEVICE_SRC := \
+	$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/src/stm32f0xx_hal.c \
+	$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/src/stm32f0xx_hal_cortex.c \
+	$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/src/stm32f0xx_hal_gpio.c \
+	$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/src/stm32f0xx_hal_rcc.c \
+	$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/src/stm32f0xx_hal_rcc_ex.c \
+	$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/src/stm32f0xx_hal_spi.c \
+	$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/src/stm32f0xx_hal_i2c.c \
+	$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/src/stm32f0xx_hal_dma.c \
+	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F0xx/Source/system_stm32f0xx.c
+
+DEVICE_ASM_SRC = \
+	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F0xx/Source/startup_stm32f072xb.S
+
+INCLUDES += -I$(DEVICE_SRC_DIR)/STM32F0xx_HAL_Driver/inc \
+			-I$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F0xx/Include
+
+# TARGET_LDS = $(DEVICE_SRC_DIR)/STM32F072RBTx_FLASH.ld
+TARGET_LDS = $(DEVICE_SRC_DIR)/stm32_flash.ld
+
+else ifeq ($(ARCH), ARM_CM3)
+
+DEVICE_SRC := \
+	$(DEVICE_SRC_DIR)/STM32F1xx_HAL_Driver/src/stm32f1xx_hal.c \
+	$(DEVICE_SRC_DIR)/STM32F1xx_HAL_Driver/src/stm32f1xx_hal_cortex.c \
+	$(DEVICE_SRC_DIR)/STM32F1xx_HAL_Driver/src/stm32f1xx_hal_gpio.c \
+	$(DEVICE_SRC_DIR)/STM32F1xx_HAL_Driver/src/stm32f1xx_hal_rcc.c \
+	$(DEVICE_SRC_DIR)/STM32F1xx_HAL_Driver/src/stm32f1xx_hal_rcc_ex.c \
+	$(DEVICE_SRC_DIR)/STM32F1xx_HAL_Driver/src/stm32f1xx_hal_spi.c \
+	$(DEVICE_SRC_DIR)/STM32F1xx_HAL_Driver/src/stm32f1xx_hal_dma.c \
+	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F1xx/Source/system_stm32f1xx.c
+
+DEVICE_ASM_SRC = \
+	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F1xx/Source/startup_stm32f103xe.S
+
+INCLUDES += -I$(DEVICE_SRC_DIR)/STM32F1xx_HAL_Driver/inc \
+			-I$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F1xx/Include
+
+# TARGET_LDS = $(DEVICE_SRC_DIR)/STM32F072RBTx_FLASH.ld
+TARGET_LDS = $(DEVICE_SRC_DIR)/stm32_flash.ld
 
 
+else ifeq ($(ARCH), ARM_CM4F_SoftFP)
 DEVICE_SRC := \
 	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal.c \
 	$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/src/stm32f4xx_hal_cortex.c \
@@ -63,7 +131,17 @@ DEVICE_SRC := \
 	$(DEVICE_SRC_DIR)/STM32F4_Discovery/stm32f4_discovery.c \
 	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Source/system_stm32f4xx.c
 
+DEVICE_ASM_SRC = \
+	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Source/startup_stm32f429_439xx.S
 
+INCLUDES += -I$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/inc \
+			-I$(DEVICE_SRC_DIR)/STM32F4_Discovery \
+			-I$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Include
+
+TARGET_LDS = $(DEVICE_SRC_DIR)/stm32_flash.ld
+endif # ARM_CM0
+
+####################
 ## system call
 DEVICE_SRC += \
 	$(DEVICE_SRC_DIR)/system/syscall/_write.c \
@@ -77,21 +155,7 @@ DEVICE_SRC += \
 
 INCLUDES += -I$(DEVICE_SRC_DIR)/system/inc
 
-
-DEVICE_ASM_SRC = \
-	$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Source/startup_stm32f429_439xx.S
-
-
 DEVICE_OBJS := $(DEVICE_SRC:.c=.o) $(DEVICE_ASM_SRC:.S=.o)
-
-INCLUDES += -I$(DEVICE_SRC_DIR) \
-			-I$(DEVICE_SRC_DIR)/STM32F4xx/inc \
-			-I$(DEVICE_SRC_DIR)/STM32F4xx_HAL_Driver/inc \
-			-I$(DEVICE_SRC_DIR)/STM32F4_Discovery \
-			-I$(DEVICE_SRC_DIR)/CMSIS/ST/STM32F4xx/Include \
-			-I$(DEVICE_SRC_DIR)/CMSIS/Core/Include
-
-TARGET_LDS = $(DEVICE_SRC_DIR)/stm32_flash.ld
 ###########################################
 # app
 ###########################################
@@ -100,10 +164,15 @@ APP_SRC_DIR := app
 APP_SRC = $(APP_SRC_DIR)/$(APP)/main.c
 INCLUDES  += -I$(APP_SRC_DIR) -I$(APP_SRC_DIR)/$(APP)
 
-ifeq ("$(APP)","demo")
+ifeq ("$(APP)","demo_m4")
 APP_SRC += \
+	$(APP_SRC_DIR)/$(APP)/stm32f4xx_hal_msp.c \
 	$(APP_SRC_DIR)/$(APP)/stm32f4xx_it.c
 
+else ifeq ("$(APP)","demo_m0")
+APP_SRC += \
+	$(APP_SRC_DIR)/$(APP)/stm32f0xx_hal_msp.c \
+	$(APP_SRC_DIR)/$(APP)/stm32f0xx_it.c
 
 else ifeq ("$(APP)","trace_demo")
 
@@ -119,58 +188,35 @@ endif
 
 APP_OBJS := $(APP_SRC:.c=.o)
 ###########################################
-# freertos
-###########################################
-FREERTOS_SRC_DIR := freertos
-
-FREERTOS_SRC = \
-    $(FREERTOS_SRC_DIR)/croutine.c \
-    $(FREERTOS_SRC_DIR)/list.c \
-    $(FREERTOS_SRC_DIR)/queue.c \
-    $(FREERTOS_SRC_DIR)/tasks.c \
-    $(FREERTOS_SRC_DIR)/timers.c \
-    $(FREERTOS_SRC_DIR)/event_groups.c \
-    $(FREERTOS_SRC_DIR)/stream_buffer.c \
-    $(FREERTOS_SRC_DIR)/portable/MemMang/heap_2.c
-
-# FREERTOS_SRC += $(FREERTOS_SRC_DIR)/portable/Common/mpu_wrappers.c
-
-PORT_SRC = \
-	$(FREERTOS_SRC_DIR)/portable/GCC/$(ARCH)/port.c
-
-PORT_ASM =
-
-FREERTOS_OBJS := $(PORT_ASM:.S=.o) $(PORT_SRC:.c=.o) $(FREERTOS_SRC:.c=.o)
-
-INCLUDES  += \
-	-I$(FREERTOS_SRC_DIR)/include \
-	-I$(FREERTOS_SRC_DIR)/portable/GCC/$(ARCH)
-
-###########################################
 # flags
 ###########################################
 LDFLAGS   := -L. -T $(TARGET_LDS) -Wl,-Map,"$(PROG_ELF).map"
 
 LDFLAGS   += $(ARCH_FLAGS)
-
 CFLAGS    := -Wall -MMD -MP $(ARCH_FLAGS) -ffunction-sections -fdata-sections $(INCLUDES)
 CFLAGS    += -O0 -g
-CFLAGS    += -DSTM32F407xx -DUSE_HAL_DRIVER
+CFLAGS    += -DUSE_HAL_DRIVER
 CFLAGS    += -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG -DOS_USE_SEMIHOSTING
 # CFLAGS    += --specs=nano.specs
 
+
 ifeq ($(ARCH), ARM_CM3)
+CFLAGS    += -DSTM32F407xx
+
+else ifeq ($(ARCH), ARM_CM0)
+CFLAGS    += -DSTM32F072xB
 
 else ifeq ($(ARCH), ARM_CM4F_SoftFP)
+CFLAGS    += -DSTM32F407xx
+
 CFLAGS    += -mfpu=fpv4-sp-d16 -mfloat-abi=softfp
 LFLAGS    += -mfpu=fpv4-sp-d16 -mfloat-abi=softfp
 endif
 
 
 OBJS := $(DEVICE_OBJS) $(APP_OBJS)
-OBJS += $(FREERTOS_OBJS)
 
-.PHONY: all clean qemu qemu_gdb_server qemu_gdb gtags
+.PHONY: all clean qemu qemu_gdb_server qemu_gdb gtags help
 
 all: $(PROG_ELF) $(PROG_BIN)
 
@@ -197,13 +243,13 @@ $(PROG_BIN): $(PROG_ELF)
 qemu: $(PROG_ELF)
 	@echo ""
 	@echo "Launching QEMU! Press Ctrl-A, X to exit"
-	qemu-system-gnuarmeclipse --verbose --verbose --board $(BOARD) --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --semihosting-cmdline $(APP) 1 2 3
+	qemu-system-gnuarmeclipse --verbose --verbose --board $(BOARD) --mcu $(MCU) -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --semihosting-cmdline $(APP) 1 2 3
 	@echo ""
 
 qemu_gdb_server: $(PROG_ELF)
 	@echo ""
 	@echo "Launching QEMU! Press Ctrl-A, X to exit"
-	qemu-system-gnuarmeclipse --verbose --verbose --board $(BOARD) --mcu STM32F429ZI -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --gdb tcp::1234 -S
+	qemu-system-gnuarmeclipse --verbose --verbose --board $(BOARD) --mcu $(MCU) -d unimp,guest_errors --nographic --image $(PROG_ELF) --semihosting-config enable=on,target=native --gdb tcp::1234 -S
 	@echo ""
 
 
@@ -224,3 +270,11 @@ gtags:
 	@find . -type f -name '*.c' -o -name '*.h' -o -iname '*.s' > cscope.files
 	@rm -f G* tags
 	@gtags -f ./cscope.files
+
+help:
+	@echo "----------------------------------------------------------------------"
+	@echo ""
+	@echo "  make qemu                  	- Simulate with Qemu"
+	@echo "  make qemu_gdb_server           - Run Qemu and wiat GDB client"
+	@echo "  make qemu_gdb              	- Start GDB to link GDB server"
+

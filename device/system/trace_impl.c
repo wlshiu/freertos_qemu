@@ -8,7 +8,13 @@
 #if defined(TRACE)
 
 // #include "cmsis_device.h"
-#include "stm32f4xx.h"
+
+#if defined(STM32F407xx)
+    #include "stm32f4xx.h"
+#elif defined(DSTM32F072xB)
+    #include "stm32f0xx.h"
+#endif
+
 #include "trace.h"
 
 // ----------------------------------------------------------------------------
